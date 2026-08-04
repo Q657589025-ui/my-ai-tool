@@ -8,10 +8,10 @@ import hashlib
 import base64
 from datetime import datetime
 from core.database import get_db, Task, Work
-from core.auth import get_user_points, update_user_points   # ✅ 明确导入
-from core.config import API_KEY, BASE_URL, OUTPUT_DIR, MODEL_CONFIG
+from core.auth import get_user_points, update_user_points
+from core.config import API_KEY, BASE_URL, OUTPUT_DIR   # ✅ 不再导入 MODEL_CONFIG
 
-# 加载模型配置
+# ==================== 加载模型配置（在文件内部） ====================
 with open("config/models.json", "r") as f:
     MODEL_CONFIG = json.load(f)
 
