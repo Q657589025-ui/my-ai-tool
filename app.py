@@ -1,3 +1,4 @@
+import os  # ✅ 添加这行
 import gradio as gr
 from core.database import create_default_admin
 from ui.login import create_login_ui
