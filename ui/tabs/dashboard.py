@@ -4,7 +4,57 @@ from core.auth import get_user_points
 from datetime import datetime
 
 def create_dashboard_tab(user_id_state):
-    with gr.Column(elem_classes="dashboard-container"):
+    with gr.Column():
+        # 内联样式（双重保障）
+        gr.HTML("""
+        <style>
+        .stats-row {
+            display: grid !important;
+            grid-template-columns: repeat(4, 1fr) !important;
+            gap: 16px !important;
+            margin-bottom: 24px !important;
+        }
+        .stat-card {
+            background: white !important;
+            border-radius: 16px !important;
+            padding: 20px 24px !important;
+            text-align: center !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+            border: 1px solid #f1f4f9 !important;
+        }
+        .stat-icon { font-size: 28px; margin-bottom: 8px; }
+        .stat-number { font-size: 32px; font-weight: 700; color: #0f172a; }
+        .stat-label { font-size: 14px; color: #64748b; }
+        .works-grid {
+            display: grid !important;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important;
+            gap: 16px !important;
+        }
+        .work-card {
+            background: white !important;
+            border-radius: 16px !important;
+            padding: 16px !important;
+            border: 1px solid #f1f4f9 !important;
+        }
+        .work-thumb { font-size: 32px; text-align: center; padding: 20px 0; background: #f8fafc; border-radius: 12px; }
+        .work-title { font-weight: 600; color: #0f172a; font-size: 14px; }
+        .work-meta { font-size: 12px; color: #94a3b8; }
+        .empty-state { text-align: center; padding: 40px; color: #94a3b8; font-size: 16px; }
+        .section-title { font-size: 18px; font-weight: 600; color: #0f172a; margin-bottom: 16px; }
+        @media (prefers-color-scheme: dark) {
+            .stat-card { background: #1a1a2e !important; border-color: rgba(255,255,255,0.06) !important; }
+            .stat-number { color: #f1f5f9 !important; }
+            .stat-label { color: #94a3b8 !important; }
+            .work-card { background: #1a1a2e !important; border-color: rgba(255,255,255,0.06) !important; }
+            .work-title { color: #e2e8f0 !important; }
+            .work-meta { color: #64748b !important; }
+            .work-thumb { background: rgba(255,255,255,0.04) !important; }
+            .section-title { color: #f1f5f9 !important; }
+            .empty-state { color: #94a3b8 !important; }
+        }
+        </style>
+        """)
+
         # 统计卡片行
         with gr.Row(elem_classes="stats-row"):
             with gr.Column(scale=1, elem_classes="stat-card"):
@@ -63,7 +113,6 @@ def create_dashboard_tab(user_id_state):
                 works_html = f'<div class="works-grid">{"".join(items)}</div>'
             return works_html, balance_html
 
-        # 绑定事件
         user_id_state.change(
             fn=update_dashboard,
             inputs=user_id_state,
