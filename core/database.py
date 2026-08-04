@@ -61,16 +61,9 @@ class Work(Base):
 
 Base.metadata.create_all(bind=engine)
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
+# ✅ 移除 get_db 生成器，改用直接会话管理
 def create_default_admin():
     try:
-        # 使用 SessionLocal 直接创建，避免生成器上下文问题
         db = SessionLocal()
         try:
             if not db.query(User).filter(User.username == "admin").first():
