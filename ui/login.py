@@ -2,7 +2,8 @@ import gradio as gr
 from core.auth import login_user, register_user
 
 def create_login_ui():
-    with gr.Blocks(theme=gr.themes.Soft(primary_hue="indigo"), title="AI Studio Pro 登录") as login_page:
+    # ✅ 使用 gr.Column 而不是 gr.Blocks，避免嵌套冲突
+    with gr.Column(visible=True) as login_col:
         gr.Markdown("# 🔐 欢迎使用 AI Studio Pro")
         with gr.Row():
             with gr.Column(scale=1):
@@ -19,12 +20,10 @@ def create_login_ui():
                 reg_btn = gr.Button("注册", variant="secondary")
                 reg_output = gr.Markdown("")
 
-        # 状态存储
         token_state = gr.State("")
         user_state = gr.State({})
         user_id_state = gr.State(None)
 
-        # 登录逻辑
         def do_login(username, password):
             result = login_user(username, password)
             if "error" in result:
@@ -33,7 +32,6 @@ def create_login_ui():
 
         login_btn.click(do_login, [username_login, password_login], [token_state, user_state, login_output])
 
-        # 注册逻辑
         def do_register(username, email, password):
             if len(password) < 6:
                 return "❌ 密码至少6位"
@@ -44,6 +42,4 @@ def create_login_ui():
 
         reg_btn.click(do_register, [username_reg, email_reg, password_reg], reg_output)
 
-        # 登录成功后隐藏登录界面（但当前页面为独立页面，需要切换，我们将此逻辑交给主app）
-        # 这里只返回状态
-        return login_page, token_state, user_state, user_id_state
+        return login_col, token_state, user_state, user_id_state
