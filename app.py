@@ -23,9 +23,10 @@ def find_free_port(start_port, max_attempts=10):
             port += 1
     raise RuntimeError(f"无法找到可用端口（从 {start_port} 开始）")
 
-# ========== 构建应用 ==========
+# ========== 构建应用（不再包含 theme/css） ==========
 def build_app():
-    with gr.Blocks(theme=gr.themes.Soft(primary_hue="indigo"), title="AI Studio Pro", css=CUSTOM_CSS) as demo:
+    # theme 和 css 已移出，只保留 title
+    with gr.Blocks(title="AI Studio Pro") as demo:
         login_col, token_state, user_state, user_id_state = create_login_ui()
 
         main_col = gr.Column(visible=False)
@@ -59,11 +60,15 @@ def build_app():
 
     return demo
 
-# ========== 启动服务（带端口重试） ==========
+# ========== 启动服务（theme 和 css 在此传入） ==========
 if __name__ == "__main__":
-    # 优先使用 Railway 注入的 PORT，否则默认 7860
     preferred_port = int(os.getenv("PORT", 7860))
     port = find_free_port(preferred_port)
     print(f"✅ 使用端口: {port}")
     demo = build_app()
-    demo.launch(server_name="0.0.0.0", server_port=port)
+    demo.launch(
+        server_name="0.0.0.0",
+        server_port=port,
+        theme=gr.themes.Soft(primary_hue="indigo"),  # 主题移到这里
+        css=CUSTOM_CSS                               # 样式移到这里
+    )
