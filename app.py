@@ -16,10 +16,8 @@ def build_app():
         .main-area { background: white; border-radius: 16px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
         .gr-button-primary { background: #4f46e5 !important; border: none !important; border-radius: 8px !important; }
     """) as demo:
-        # 登录组件
         login_col, token_state, user_state, user_id_state = create_login_ui()
 
-        # 主应用（登录后可见）
         main_col = gr.Column(visible=False)
         with main_col:
             with gr.Row():
@@ -84,7 +82,6 @@ def build_app():
                 return ""
             user_id_state.change(fn=update_balance, inputs=user_id_state, outputs=balance_display)
 
-        # 登录成功切换
         def on_login_success(token, user):
             if token:
                 return user.get("id"), gr.update(visible=False), gr.update(visible=True)
@@ -99,7 +96,6 @@ def build_app():
     return demo
 
 if __name__ == "__main__":
-    # ✅ 在启动时创建管理员，确保数据库已初始化
     create_default_admin()
     port = int(os.getenv("PORT", 7860))
     demo = build_app()
