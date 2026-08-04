@@ -52,3 +52,14 @@ def get_user_points(user_id):
     with get_db() as db:
         user = db.query(User).filter(User.id == user_id).first()
         return user.points if user else 0
+
+# ==================== 关键：必须包含以下函数 ====================
+def update_user_points(user_id, amount):
+    """更新用户积分，正数增加，负数扣除"""
+    with get_db() as db:
+        user = db.query(User).filter(User.id == user_id).first()
+        if user:
+            user.points += amount
+            db.commit()
+            return True
+        return False
