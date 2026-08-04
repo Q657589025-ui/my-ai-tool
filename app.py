@@ -19,9 +19,8 @@ def find_free_port(start_port, max_attempts=10):
             port += 1
     raise RuntimeError(f"无法找到可用端口（从 {start_port} 开始）")
 
-# ========== 直接内嵌 CSS（确保生效） ==========
+# ========== 硬编码 CSS（确保样式生效） ==========
 HARD_CODED_CSS = """
-/* 卡片样式 - 直接硬编码 */
 .stats-row {
     display: grid !important;
     grid-template-columns: repeat(4, 1fr) !important;
@@ -55,7 +54,6 @@ HARD_CODED_CSS = """
 .work-meta { font-size: 12px; color: #94a3b8; }
 .empty-state { text-align: center; padding: 40px; color: #94a3b8; font-size: 16px; }
 .section-title { font-size: 18px; font-weight: 600; color: #0f172a; margin-bottom: 16px; }
-/* 深色模式适配 */
 @media (prefers-color-scheme: dark) {
     .stat-card { background: #1a1a2e !important; border-color: rgba(255,255,255,0.06) !important; }
     .stat-number { color: #f1f5f9 !important; }
@@ -112,5 +110,5 @@ if __name__ == "__main__":
         server_name="0.0.0.0",
         server_port=port,
         theme=gr.themes.Soft(primary_hue="indigo"),
-        css=HARD_CODED_CSS   # 使用硬编码样式
+        css=HARD_CODED_CSS
     )
