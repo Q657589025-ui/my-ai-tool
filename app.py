@@ -14,18 +14,16 @@ from sqlalchemy.pool import NullPool
 import bcrypt
 import jwt
 
-# ==================== 配置 ====================
-# 从环境变量读取敏感信息
-API_KEY = os.getenv("AIGC_API_KEY")
-if not API_KEY:
-    raise ValueError("Missing AIGC_API_KEY environment variable")
+# ==================== 硬编码 API Key（已替你填好）====================
+API_KEY = "sk-a2c7a62fa5b7d75dff72f6b02eca78d1d63b7b35a72256a8"
+SECRET_KEY = "my-fixed-secret-key-2024-for-ai-studio"
+
 BASE_URL = "https://api.likeadmin.cn/api/v1"
-SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
 JWT_EXPIRATION = 7 * 24 * 60 * 60  # 7天
 OUTPUT_DIR = "outputs"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# 数据库
+# 数据库（默认 SQLite，如需 PostgreSQL 可改）
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///database/studio.db")
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
@@ -34,7 +32,7 @@ else:
 Base = declarative_base()
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
-# ==================== 数据库模型 ====================
+# ==================== 数据库模型（不变） ====================
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -84,7 +82,7 @@ def get_db():
     finally:
         db.close()
 
-# ==================== 认证 ====================
+# ==================== 认证（不变） ====================
 def hash_password(password):
     salt = bcrypt.gensalt()
     return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
@@ -260,7 +258,6 @@ class TaskWorker:
                         task.progress = 100
                         task.result = json.dumps(result)
                         task.cost = cost
-                        # 保存作品
                         url = None
                         if "images" in result and result["images"]:
                             url = result["images"][0].get("url")
@@ -338,7 +335,7 @@ def submit_task(user_id, task_type, model, channel, prompt, file, **params):
         else:
             return None, "扣费失败"
 
-# ==================== UI 渲染函数 ====================
+# ==================== UI 渲染函数（完整） ====================
 def render_dashboard(user_id):
     points = get_user_points(user_id)
     with get_db() as db:
@@ -549,7 +546,6 @@ def login_ui():
 
         reg_btn.click(do_register, [username_reg, email_reg, password_reg], reg_output)
 
-        # 登录成功后切换
         def on_login_success(token, user):
             if token:
                 return user.get("id"), gr.update(visible=False), gr.update(visible=True)
@@ -570,10 +566,8 @@ def build_app():
         .main-area { background: white; border-radius: 16px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
         .gr-button-primary { background: #4f46e5 !important; border: none !important; border-radius: 8px !important; }
     """) as demo:
-        # 登录组件
         login_col, token_state, user_state, user_id_state = login_ui()
 
-        # 主应用（登录后可见）
         main_col = gr.Column(visible=False)
         with main_col:
             with gr.Row():
@@ -591,14 +585,12 @@ def build_app():
                 nav_tasks = gr.Button("📌 任务", variant="secondary")
                 nav_history = gr.Button("📂 作品", variant="secondary")
 
-            # 内容容器
             content_col = gr.Column()
             with content_col:
                 page_placeholder = gr.Column(visible=True)
                 with page_placeholder:
                     gr.Markdown("请登录后选择功能")
 
-            # 页面切换函数
             def switch_page(page_name, user_id):
                 if not user_id:
                     return gr.Column(children=[gr.Markdown("请先登录")])
@@ -630,12 +622,10 @@ def build_app():
             nav_tasks.click(fn=switch_page, inputs=[gr.State("tasks"), user_id_state], outputs=page_placeholder)
             nav_history.click(fn=switch_page, inputs=[gr.State("history"), user_id_state], outputs=page_placeholder)
 
-            # 退出登录
             def logout():
                 return "", {}, None, gr.update(visible=True), gr.update(visible=False)
             logout_btn.click(fn=logout, inputs=[], outputs=[token_state, user_state, user_id_state, login_col, main_col])
 
-            # 更新余额显示
             def update_balance(user_id):
                 if user_id:
                     return f"💰 {get_user_points(user_id)} 点"
