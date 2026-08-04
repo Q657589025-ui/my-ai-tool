@@ -7,11 +7,11 @@ import threading
 import hashlib
 import base64
 from datetime import datetime
-from core.database import get_db, Task, Work
+from core.database import SessionLocal, Task, Work
 from core.auth import get_user_points, update_user_points
-from core.config import API_KEY, BASE_URL, OUTPUT_DIR   # ✅ 不再导入 MODEL_CONFIG
+from core.config import API_KEY, BASE_URL, OUTPUT_DIR
 
-# ==================== 加载模型配置（在文件内部） ====================
+# ==================== 加载模型配置 ====================
 with open("config/models.json", "r") as f:
     MODEL_CONFIG = json.load(f)
 
@@ -108,26 +108,39 @@ class TaskWorker:
         self.client = AIGCClient()
 
     def poll_task(self, task_id, user_id):
-        with get_db() as db:
+        db = SessionLocal()
+        try:
             db.query(Task).filter(Task.task_id == task_id).update({"status": "processing", "progress": 10})
             db.commit()
+        finally:
+            db.close()
+
         start = time.time()
         while time.time() - start < 150:
             status_resp = self.client.query_task(task_id)
             if "error" in status_resp:
-                with get_db() as db:
+                db = SessionLocal()
+                try:
                     db.query(Task).filter(Task.task_id == task_id).update({"status": "failed"})
                     db.commit()
+                finally:
+                    db.close()
                 break
+
             status = status_resp.get("status")
             if status == "processing":
-                with get_db() as db:
+                db = SessionLocal()
+                try:
                     db.query(Task).filter(Task.task_id == task_id).update({"progress": 50})
                     db.commit()
+                finally:
+                    db.close()
+
             elif status in ["completed", "success"]:
                 result = status_resp.get("result", {})
                 cost = status_resp.get("usage", {}).get("points_cost", 0)
-                with get_db() as db:
+                db = SessionLocal()
+                try:
                     task = db.query(Task).filter(Task.task_id == task_id).first()
                     if task:
                         task.status = "completed"
@@ -154,34 +167,48 @@ class TaskWorker:
                             )
                             db.add(work)
                         db.commit()
+                finally:
+                    db.close()
                 break
+
             elif status in ["failed", "cancelled"]:
-                with get_db() as db:
+                db = SessionLocal()
+                try:
                     db.query(Task).filter(Task.task_id == task_id).update({"status": "failed"})
                     db.commit()
+                finally:
+                    db.close()
                 break
+
             time.sleep(2)
         else:
-            with get_db() as db:
+            db = SessionLocal()
+            try:
                 db.query(Task).filter(Task.task_id == task_id).update({"status": "timeout"})
                 db.commit()
+            finally:
+                db.close()
 
 worker = TaskWorker()
 
 def submit_task(user_id, task_type, model, channel, prompt, file, **params):
     if get_user_points(user_id) < get_cost(task_type, params):
         return None, "余额不足"
+
     client = AIGCClient()
+
     if task_type == "chat":
         messages = [{"role": "user", "content": prompt}]
         resp = client.chat_completion(model, channel, messages, **params)
         if "error" in resp:
             return None, resp["error"]
+
         if update_user_points(user_id, -get_cost(task_type, params)):
             choices = resp.get("choices", [])
             if choices:
                 content = choices[0].get("message", {}).get("content", "")
-                with get_db() as db:
+                db = SessionLocal()
+                try:
                     work = Work(
                         user_id=user_id,
                         type="chat",
@@ -193,22 +220,29 @@ def submit_task(user_id, task_type, model, channel, prompt, file, **params):
                     )
                     db.add(work)
                     db.commit()
+                finally:
+                    db.close()
             return resp, None
         else:
             return None, "扣费失败"
+
     else:
         if file:
             uri = file_to_data_uri(file)
             if uri:
                 params["image_urls"] = [uri]
+
         params["prompt"] = prompt
         resp = client.create_task(model, channel, **params)
         if "error" in resp:
             return None, resp["error"]
+
         task_id = resp.get("task_id")
         if not task_id:
             return None, "未返回 task_id"
-        with get_db() as db:
+
+        db = SessionLocal()
+        try:
             task = Task(
                 task_id=task_id,
                 user_id=user_id,
@@ -221,6 +255,9 @@ def submit_task(user_id, task_type, model, channel, prompt, file, **params):
             )
             db.add(task)
             db.commit()
+        finally:
+            db.close()
+
         if update_user_points(user_id, -get_cost(task_type, params)):
             threading.Thread(target=worker.poll_task, args=(task_id, user_id), daemon=True).start()
             return {"task_id": task_id, "cost": get_cost(task_type, params)}, None
@@ -231,11 +268,15 @@ def submit_task(user_id, task_type, model, channel, prompt, file, **params):
 def get_model_config(category, name):
     return MODEL_CONFIG.get(category, {}).get(name, {})
 
-# ==================== UI 渲染函数（完整）====================
+# ==================== UI 渲染函数 ====================
 def render_dashboard(user_id):
     points = get_user_points(user_id)
-    with get_db() as db:
+    db = SessionLocal()
+    try:
         works = db.query(Work).filter(Work.user_id == user_id).order_by(Work.created_at.desc()).limit(6).all()
+    finally:
+        db.close()
+
     with gr.Column():
         gr.Markdown(f"## 💰 {points} 点")
         gr.Markdown("### 今日统计：图片 23 | 视频 8 | 数字人 4")
@@ -246,8 +287,12 @@ def render_dashboard(user_id):
             gr.Markdown("暂无作品")
 
 def render_task_center(user_id):
-    with get_db() as db:
+    db = SessionLocal()
+    try:
         tasks = db.query(Task).filter(Task.user_id == user_id).order_by(Task.created_at.desc()).limit(20).all()
+    finally:
+        db.close()
+
     with gr.Column():
         if tasks:
             for t in tasks:
@@ -268,6 +313,7 @@ def render_image_ui(user_id):
         btn = gr.Button("生成", variant="primary")
         output = gr.Image(label="结果")
         status = gr.Markdown("")
+
         def gen(user_id, model_name, prompt, file, res, ratio):
             config = get_model_config("image", model_name)
             if not config:
@@ -285,6 +331,7 @@ def render_image_ui(user_id):
                 else:
                     return None, f"✅ 完成！链接：{result['url']}"
             return None, "未知结果"
+
         btn.click(gen, [gr.State(user_id), model_sel, prompt, file, resolution, aspect], [output, status])
         return
 
@@ -301,6 +348,7 @@ def render_video_ui(user_id):
         btn = gr.Button("生成", variant="primary")
         output = gr.Video(label="结果")
         status = gr.Markdown("")
+
         def gen(user_id, model_name, prompt, file, quality, duration, ratio):
             config = get_model_config("video", model_name)
             if not config:
@@ -314,6 +362,7 @@ def render_video_ui(user_id):
             elif result and "url" in result:
                 return result["url"], f"✅ 完成！消耗 {result.get('cost',0)} 点"
             return None, "未知结果"
+
         btn.click(gen, [gr.State(user_id), model_sel, prompt, file, quality, duration, ratio], [output, status])
         return
 
@@ -326,6 +375,7 @@ def render_music_ui(user_id):
         btn = gr.Button("生成", variant="primary")
         output = gr.Audio(label="结果")
         status = gr.Markdown("")
+
         def gen(user_id, prompt, style, tempo):
             config = get_model_config("music", "Music Generation")
             if not config:
@@ -339,6 +389,7 @@ def render_music_ui(user_id):
             elif result and "url" in result:
                 return result["url"], f"✅ 完成！消耗 {result.get('cost',0)} 点"
             return None, "未知结果"
+
         btn.click(gen, [gr.State(user_id), prompt, style, tempo], [output, status])
         return
 
@@ -350,6 +401,7 @@ def render_human_ui(user_id):
         btn = gr.Button("生成", variant="primary")
         output = gr.Video(label="结果")
         status = gr.Markdown("")
+
         def gen(user_id, prompt, expr):
             config = get_model_config("human", "Digital Human")
             if not config:
@@ -363,6 +415,7 @@ def render_human_ui(user_id):
             elif result and "url" in result:
                 return result["url"], f"✅ 完成！消耗 {result.get('cost',0)} 点"
             return None, "未知结果"
+
         btn.click(gen, [gr.State(user_id), prompt, expr], [output, status])
         return
 
@@ -374,6 +427,7 @@ def render_chat_ui(user_id):
         max_tokens = gr.Slider(256, 4096, value=2048, step=256, label="最大长度")
         btn = gr.Button("发送", variant="primary")
         output = gr.Markdown("")
+
         def gen(user_id, prompt, temp, max_tokens):
             config = get_model_config("chat", "Qwen3.6-Plus")
             if not config:
@@ -386,12 +440,17 @@ def render_chat_ui(user_id):
                 content = result["choices"][0].get("message", {}).get("content", "无回复")
                 return f"🤖 {content}"
             return "⚠️ 未知回复"
+
         btn.click(gen, [gr.State(user_id), prompt, temp, max_tokens], output)
         return
 
 def render_history(user_id):
-    with get_db() as db:
+    db = SessionLocal()
+    try:
         works = db.query(Work).filter(Work.user_id == user_id).order_by(Work.created_at.desc()).limit(50).all()
+    finally:
+        db.close()
+
     with gr.Column():
         if works:
             for w in works:
