@@ -1,4 +1,2 @@
 gradio
 requests
-fastapi
-uvicorn
