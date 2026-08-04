@@ -2,7 +2,11 @@ import gradio as gr
 import requests
 import time
 import json
+from fastapi import FastAPI
+from starlette.middleware.cors import CORSMiddleware
+import uvicorn
 
+# ========== 原有的 AIGC 客户端逻辑 ==========
 class AIGCClient:
     def __init__(self, api_key):
         self.api_key = api_key
@@ -72,15 +76,22 @@ def process(api_key, prompt, mode):
     else:
         return client.chat(prompt)
 
+# ========== 创建 Gradio 界面 ==========
 iface = gr.Interface(
     fn=process,
     inputs=[
-        gr.Textbox(label="🔑 API Key（从个人中心复制）", type="password", placeholder="sk-..."),
-        gr.Textbox(label="📝 输入指令/问题", placeholder="例如：一只赛博朋克猫"),
-        gr.Radio(["🖼️ 图片生成", "💬 文本对话"], label="选择模式", value="🖼️ 图片生成")
+        gr.Textbox(label="🔑 API Key", type="password", placeholder="sk-..."),
+        gr.Textbox(label="📝 指令", placeholder="例如：一只赛博朋克猫"),
+        gr.Radio(["🖼️ 图片生成", "💬 文本对话"], label="模式", value="🖼️ 图片生成")
     ],
     outputs=gr.Markdown(label="📤 结果"),
     title="🧠 算力超市 · 手机AI助手",
 )
 
-iface.launch()
+# ========== 包装成 FastAPI 应用 ==========
+app = FastAPI()
+app = gr.mount_gradio_app(app, iface, path="/")
+
+# ========== 如果直接运行（本地测试用）==========
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
