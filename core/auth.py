@@ -2,7 +2,7 @@ import bcrypt
 import jwt
 from datetime import datetime
 from core.config import SECRET_KEY, JWT_EXPIRATION
-from core.database import get_db, User
+from core.database import SessionLocal, User
 
 def hash_password(password):
     salt = bcrypt.gensalt()
@@ -23,7 +23,8 @@ def decode_token(token):
 
 def register_user(username, email, password):
     try:
-        with get_db() as db:
+        db = SessionLocal()
+        try:
             if db.query(User).filter(User.username == username).first():
                 return {"error": "用户名已存在"}
             if db.query(User).filter(User.email == email).first():
@@ -34,32 +35,50 @@ def register_user(username, email, password):
             db.commit()
             db.refresh(user)
             return {"user": {"id": user.id, "username": user.username, "email": user.email, "role": user.role}}
+        finally:
+            db.close()
     except Exception as e:
         return {"error": f"注册失败: {str(e)}"}
 
 def login_user(username, password):
     try:
-        with get_db() as db:
+        db = SessionLocal()
+        try:
             user = db.query(User).filter(User.username == username).first()
             if not user or not verify_password(password, user.password_hash):
                 return {"error": "用户名或密码错误"}
             token = create_token(user.id, user.username, user.role)
-            return {"token": token, "user": {"id": user.id, "username": user.username, "email": user.email, "role": user.role, "points": user.points}}
+            return {
+                "token": token,
+                "user": {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "role": user.role,
+                    "points": user.points
+                }
+            }
+        finally:
+            db.close()
     except Exception as e:
         return {"error": f"登录失败: {str(e)}"}
 
 def get_user_points(user_id):
-    with get_db() as db:
+    db = SessionLocal()
+    try:
         user = db.query(User).filter(User.id == user_id).first()
         return user.points if user else 0
+    finally:
+        db.close()
 
-# ==================== 关键：必须包含以下函数 ====================
 def update_user_points(user_id, amount):
-    """更新用户积分，正数增加，负数扣除"""
-    with get_db() as db:
+    db = SessionLocal()
+    try:
         user = db.query(User).filter(User.id == user_id).first()
         if user:
             user.points += amount
             db.commit()
             return True
         return False
+    finally:
+        db.close()
