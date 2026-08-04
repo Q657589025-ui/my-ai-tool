@@ -1,4 +1,4 @@
-import os  # ✅ 添加这行
+import os
 import gradio as gr
 from core.database import create_default_admin
 from ui.login import create_login_ui
@@ -8,8 +8,6 @@ from ui.main import (
     render_chat_ui, render_history
 )
 from core.auth import get_user_points
-
-create_default_admin()
 
 def build_app():
     with gr.Blocks(theme=gr.themes.Soft(primary_hue="indigo"), title="AI Studio Pro", css="""
@@ -101,6 +99,8 @@ def build_app():
     return demo
 
 if __name__ == "__main__":
+    # ✅ 在启动时创建管理员，确保数据库已初始化
+    create_default_admin()
     port = int(os.getenv("PORT", 7860))
     demo = build_app()
     demo.launch(server_name="0.0.0.0", server_port=port)
