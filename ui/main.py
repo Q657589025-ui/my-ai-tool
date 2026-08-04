@@ -9,9 +9,9 @@ import base64
 from datetime import datetime
 from core.database import SessionLocal, Task, Work
 from core.auth import get_user_points, update_user_points
-from core.config import API_KEY, BASE_URL, OUTPUT_DIR   # ✅ 不再导入 MODEL_CONFIG
+from core.config import API_KEY, BASE_URL, OUTPUT_DIR
 
-# ==================== 加载模型配置（在文件内部） ====================
+# ==================== 加载模型配置 ====================
 with open("config/models.json", "r") as f:
     MODEL_CONFIG = json.load(f)
 
@@ -276,15 +276,13 @@ def render_dashboard(user_id):
         works = db.query(Work).filter(Work.user_id == user_id).order_by(Work.created_at.desc()).limit(6).all()
     finally:
         db.close()
-
-    with gr.Column():
-        gr.Markdown(f"## 💰 {points} 点")
-        gr.Markdown("### 今日统计：图片 23 | 视频 8 | 数字人 4")
-        if works:
-            for w in works:
-                gr.Markdown(f"**{w.title}**  {w.type}  {w.model}  {w.created_at}")
-        else:
-            gr.Markdown("暂无作品")
+    return gr.Column(
+        children=[
+            gr.Markdown(f"## 💰 {points} 点"),
+            gr.Markdown("### 今日统计：图片 23 | 视频 8 | 数字人 4"),
+            *([gr.Markdown(f"**{w.title}**  {w.type}  {w.model}  {w.created_at}") for w in works] if works else [gr.Markdown("暂无作品")])
+        ]
+    )
 
 def render_task_center(user_id):
     db = SessionLocal()
@@ -292,14 +290,14 @@ def render_task_center(user_id):
         tasks = db.query(Task).filter(Task.user_id == user_id).order_by(Task.created_at.desc()).limit(20).all()
     finally:
         db.close()
-
-    with gr.Column():
-        if tasks:
-            for t in tasks:
-                emoji = "⏳" if t.status == "waiting" else "🔄" if t.status == "processing" else "✅" if t.status == "completed" else "❌"
-                gr.Markdown(f"{emoji} {t.type} | {t.model} | {t.prompt[:30]}... | 进度 {t.progress}%")
-        else:
-            gr.Markdown("暂无任务")
+    if tasks:
+        lines = []
+        for t in tasks:
+            emoji = "⏳" if t.status == "waiting" else "🔄" if t.status == "processing" else "✅" if t.status == "completed" else "❌"
+            lines.append(f"{emoji} {t.type} | {t.model} | {t.prompt[:30]}... | 进度 {t.progress}%")
+        return gr.Column(children=[gr.Markdown("\n".join(lines))])
+    else:
+        return gr.Column(children=[gr.Markdown("暂无任务")])
 
 def render_image_ui(user_id):
     with gr.Column():
@@ -333,7 +331,7 @@ def render_image_ui(user_id):
             return None, "未知结果"
 
         btn.click(gen, [gr.State(user_id), model_sel, prompt, file, resolution, aspect], [output, status])
-        return
+    return gr.Column()
 
 def render_video_ui(user_id):
     with gr.Column():
@@ -364,7 +362,7 @@ def render_video_ui(user_id):
             return None, "未知结果"
 
         btn.click(gen, [gr.State(user_id), model_sel, prompt, file, quality, duration, ratio], [output, status])
-        return
+    return gr.Column()
 
 def render_music_ui(user_id):
     with gr.Column():
@@ -391,7 +389,7 @@ def render_music_ui(user_id):
             return None, "未知结果"
 
         btn.click(gen, [gr.State(user_id), prompt, style, tempo], [output, status])
-        return
+    return gr.Column()
 
 def render_human_ui(user_id):
     with gr.Column():
@@ -417,7 +415,7 @@ def render_human_ui(user_id):
             return None, "未知结果"
 
         btn.click(gen, [gr.State(user_id), prompt, expr], [output, status])
-        return
+    return gr.Column()
 
 def render_chat_ui(user_id):
     with gr.Column():
@@ -442,7 +440,7 @@ def render_chat_ui(user_id):
             return "⚠️ 未知回复"
 
         btn.click(gen, [gr.State(user_id), prompt, temp, max_tokens], output)
-        return
+    return gr.Column()
 
 def render_history(user_id):
     db = SessionLocal()
@@ -459,3 +457,4 @@ def render_history(user_id):
                     gr.HTML(f"<img src='{w.url}' style='max-width:200px;max-height:200px;'/>")
         else:
             gr.Markdown("暂无作品")
+    return gr.Column()
