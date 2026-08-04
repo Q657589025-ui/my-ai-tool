@@ -46,9 +46,7 @@ def create_dashboard_tab(user_id_state):
                 works = db.query(Work).filter(Work.user_id == user_id).order_by(Work.created_at.desc()).limit(6).all()
             finally:
                 db.close()
-            # 更新余额
             balance_html = str(points)
-            # 生成作品网格
             if not works:
                 works_html = '<div class="works-grid"><div class="empty-state">暂无作品，开始创作吧 🚀</div></div>'
             else:
@@ -66,7 +64,6 @@ def create_dashboard_tab(user_id_state):
             return works_html, balance_html
 
         # 绑定更新事件
-        works_grid.change(None, None, None)  # 占位
         user_id_state.change(
             fn=update_dashboard,
             inputs=user_id_state,
