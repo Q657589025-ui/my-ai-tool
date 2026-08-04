@@ -63,7 +63,7 @@ def create_dashboard_tab(user_id_state):
                 works_html = f'<div class="works-grid">{"".join(items)}</div>'
             return works_html, balance_html
 
-        # 绑定更新事件
+        # 绑定事件
         user_id_state.change(
             fn=update_dashboard,
             inputs=user_id_state,
