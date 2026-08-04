@@ -1,7 +1,7 @@
 import os
 import socket
 import gradio as gr
-from ui.theme import CUSTOM_CSS
+from ui.theme import CUSTOM_CSS  # 确保正确导入
 from core.auth import create_default_admin, get_user_points
 from ui.login import create_login_ui
 from ui.main import create_main_tabs
@@ -9,9 +9,8 @@ from ui.main import create_main_tabs
 # ========== 创建默认管理员 ==========
 create_default_admin()
 
-# ========== 端口自动查找函数 ==========
+# ========== 端口自动查找 ==========
 def find_free_port(start_port, max_attempts=10):
-    """从 start_port 开始查找可用端口"""
     port = start_port
     for _ in range(max_attempts):
         try:
@@ -23,9 +22,8 @@ def find_free_port(start_port, max_attempts=10):
             port += 1
     raise RuntimeError(f"无法找到可用端口（从 {start_port} 开始）")
 
-# ========== 构建应用（不再包含 theme/css） ==========
+# ========== 构建应用 ==========
 def build_app():
-    # theme 和 css 已移出，只保留 title
     with gr.Blocks(title="AI Studio Pro") as demo:
         login_col, token_state, user_state, user_id_state = create_login_ui()
 
@@ -60,7 +58,7 @@ def build_app():
 
     return demo
 
-# ========== 启动服务（theme 和 css 在此传入） ==========
+# ========== 启动服务（强制注入 CSS） ==========
 if __name__ == "__main__":
     preferred_port = int(os.getenv("PORT", 7860))
     port = find_free_port(preferred_port)
@@ -69,6 +67,6 @@ if __name__ == "__main__":
     demo.launch(
         server_name="0.0.0.0",
         server_port=port,
-        theme=gr.themes.Soft(primary_hue="indigo"),  # 主题移到这里
-        css=CUSTOM_CSS                               # 样式移到这里
+        theme=gr.themes.Soft(primary_hue="indigo"),
+        css=CUSTOM_CSS   # 明确传递 CSS
     )
