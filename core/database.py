@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float, Text, ForeignKey
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from sqlalchemy.pool import NullPool
-from core.config import DATABASE_URL
+from config.settings import DATABASE_URL
 
 if DATABASE_URL.startswith("sqlite:///"):
     db_path = DATABASE_URL.replace("sqlite:///", "")
@@ -19,6 +19,7 @@ else:
 Base = declarative_base()
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
+# ---------- 模型 ----------
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -61,19 +62,6 @@ class Work(Base):
 
 Base.metadata.create_all(bind=engine)
 
-# ✅ 移除 get_db 生成器，改用直接会话管理
-def create_default_admin():
-    try:
-        db = SessionLocal()
-        try:
-            if not db.query(User).filter(User.username == "admin").first():
-                import bcrypt
-                hashed = bcrypt.hashpw("admin123".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-                admin = User(username="admin", email="admin@studio.com", password_hash=hashed, role="admin", points=99999)
-                db.add(admin)
-                db.commit()
-                print("✅ 默认管理员已创建: admin / admin123")
-        finally:
-            db.close()
-    except Exception as e:
-        print(f"⚠️ 创建管理员失败: {e}")
+# ---------- 会话管理 ----------
+def get_db_session():
+    return SessionLocal()
