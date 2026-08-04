@@ -7,9 +7,13 @@ import threading
 import hashlib
 import base64
 from datetime import datetime
-from core.database import get_db, User, Task, Work
-from core.auth import get_user_points, update_user_points   # ✅ 正确
+from core.database import get_db, Task, Work
+from core.auth import get_user_points, update_user_points   # ✅ 明确导入
 from core.config import API_KEY, BASE_URL, OUTPUT_DIR, MODEL_CONFIG
+
+# 加载模型配置
+with open("config/models.json", "r") as f:
+    MODEL_CONFIG = json.load(f)
 
 # ==================== API 客户端 ====================
 class AIGCClient:
@@ -74,7 +78,7 @@ def download_image(url, filename=None):
             return None
     return local_path
 
-# ==================== 价格与任务系统 ====================
+# ==================== 价格与任务 ====================
 PRICE_MAP = {
     "image": 10,
     "video_720p": 100,
@@ -227,7 +231,7 @@ def submit_task(user_id, task_type, model, channel, prompt, file, **params):
 def get_model_config(category, name):
     return MODEL_CONFIG.get(category, {}).get(name, {})
 
-# ==================== UI 渲染函数 ====================
+# ==================== UI 渲染函数（完整）====================
 def render_dashboard(user_id):
     points = get_user_points(user_id)
     with get_db() as db:
