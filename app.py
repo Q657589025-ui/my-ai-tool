@@ -23,12 +23,20 @@ JWT_EXPIRATION = 7 * 24 * 60 * 60  # 7天
 OUTPUT_DIR = "outputs"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# 数据库（默认 SQLite，如需 PostgreSQL 可改）
+# ==================== 数据库配置（自动创建目录） ====================
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///database/studio.db")
+# 确保数据库文件所在目录存在
+if DATABASE_URL.startswith("sqlite:///"):
+    db_path = DATABASE_URL.replace("sqlite:///", "")
+    db_dir = os.path.dirname(db_path)
+    if db_dir and not os.path.exists(db_dir):
+        os.makedirs(db_dir, exist_ok=True)
+
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 else:
     engine = create_engine(DATABASE_URL, poolclass=NullPool)
+
 Base = declarative_base()
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
