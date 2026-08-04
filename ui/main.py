@@ -9,9 +9,9 @@ import base64
 from datetime import datetime
 from core.database import SessionLocal, Task, Work
 from core.auth import get_user_points, update_user_points
-from core.config import API_KEY, BASE_URL, OUTPUT_DIR
+from core.config import API_KEY, BASE_URL, OUTPUT_DIR   # ✅ 不再导入 MODEL_CONFIG
 
-# ==================== 加载模型配置 ====================
+# ==================== 加载模型配置（在文件内部） ====================
 with open("config/models.json", "r") as f:
     MODEL_CONFIG = json.load(f)
 
