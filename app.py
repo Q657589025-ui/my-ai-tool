@@ -6,7 +6,7 @@ import os
 import base64
 from datetime import datetime
 
-# ==================== 配置（替换为你重置后的 Key） ====================
+# ==================== 配置（请替换为你重置后的 Key） ====================
 YOUR_API_KEY = "sk-7a0c8f2f854263e38c24f8037e1cb22d828f7545b4016709"
 BASE_URL = "https://api.likeadmin.cn/api/v1"
 
@@ -60,7 +60,7 @@ def file_to_data_uri(file_obj):
         b64 = base64.b64encode(data).decode("utf-8")
         return f"data:{mime};base64,{b64}"
 
-# ==================== 模型数据库（完整） ====================
+# ==================== 模型数据库 ====================
 MODELS = {
     "文本": {
         "qwen3.6-plus": {
@@ -193,7 +193,7 @@ MODELS = {
     }
 }
 
-# 应用映射（用于“更多应用”快捷访问）
+# 应用映射（用于“更多应用”快捷访问，这里未在UI中直接实现，但可扩展）
 APP_MAP = {
     "音乐生成": "music_generation",
     "全驱动数字人": "digital_human",
@@ -211,13 +211,12 @@ APP_MAP = {
     "智能剪辑": "veo3.1-fast"
 }
 
-# ==================== 全局历史记录（内存） ====================
+# ==================== 历史记录（内存） ====================
 history = []
 
 # ==================== 生成函数 ====================
 def generate_wrapper(model_key, prompt, file, *args):
     """生成入口，处理所有模型"""
-    # 寻找模型
     model_info = None
     for cat, mods in MODELS.items():
         if model_key in mods:
@@ -229,12 +228,10 @@ def generate_wrapper(model_key, prompt, file, *args):
     # 构建参数
     params = {}
     param_defs = model_info["params"]
-    # args 顺序与 param_defs 顺序一致
     for i, pdef in enumerate(param_defs):
         if i < len(args):
             val = args[i]
             if val is not None:
-                # 如果是复选框，可能为 True/False
                 if pdef["type"] == "checkbox":
                     params[pdef["key"]] = bool(val)
                 else:
@@ -244,26 +241,20 @@ def generate_wrapper(model_key, prompt, file, *args):
     if file is not None:
         uri = file_to_data_uri(file)
         if uri:
-            # 根据模型类型决定字段名
             if "image" in model_key or "nano" in model_key:
                 params["image_urls"] = [uri]
             elif "video" in model_key or "h3" in model_key:
                 params["image_urls"] = [uri]
             else:
-                # 默认尝试
                 params["urls"] = [uri]
 
-    # 添加 prompt
     if prompt:
         params["prompt"] = prompt
 
-    # 获取 channel
     channel = model_info["channel"]
     model = model_key
-
     client = AIGCClient()
 
-    # 判断是否是文本对话
     if "qwen" in model_key:
         messages = [{"role": "user", "content": prompt}]
         resp = client.chat_completion(model, channel, messages, **params)
@@ -275,12 +266,10 @@ def generate_wrapper(model_key, prompt, file, *args):
             usage = resp.get("usage", {})
             cost = usage.get("points_cost", 0)
             result_text = f"🤖 {content}\n\n消耗 {cost} 点"
-            # 记录历史
             history.append({"时间": datetime.now().strftime("%H:%M:%S"), "模型": model_key, "提示": prompt, "结果": result_text[:100]})
             return result_text
         return "⚠️ 未获取回复"
     else:
-        # 异步任务
         resp = client.create_task(model, channel, **params)
         if "error" in resp:
             return f"❌ 错误：{resp['error']}"
@@ -289,7 +278,6 @@ def generate_wrapper(model_key, prompt, file, *args):
             result_text = f"⚠️ 同步返回：{json.dumps(resp, ensure_ascii=False, indent=2)}"
             history.append({"时间": datetime.now().strftime("%H:%M:%S"), "模型": model_key, "提示": prompt, "结果": result_text[:100]})
             return result_text
-        # 轮询
         start = time.time()
         while time.time() - start < 150:
             status_resp = client.query_task(task_id)
@@ -300,7 +288,6 @@ def generate_wrapper(model_key, prompt, file, *args):
                 result = status_resp.get("result", {})
                 usage = status_resp.get("usage", {})
                 cost = usage.get("points_cost", 0)
-                # 提取链接
                 url = None
                 if "images" in result:
                     url = result["images"][0].get("url", "")
@@ -318,62 +305,50 @@ def generate_wrapper(model_key, prompt, file, *args):
             time.sleep(2)
         return "⏰ 超时，请稍后查询"
 
-def get_balance():
+def get_balance_display():
     client = AIGCClient()
     resp = client.get_balance()
     if "error" in resp:
         return "💰 余额：查询失败"
     return f"💰 余额：{resp.get('available_points', 0):.2f} 点"
 
-def refresh_history():
+def refresh_history_display():
     if not history:
         return "暂无记录"
-    # 显示最近10条
     lines = []
     for item in history[-10:]:
         lines.append(f"{item['时间']} | {item['模型']} | {item['结果'][:50]}...")
     return "\n".join(lines)
 
-def on_model_change(model_key):
-    """当模型改变时，动态更新参数面板的可见性（因为Gradio无法动态创建，我们使用固定控件，但这里我们使用更新值）"""
-    # 由于我们无法动态创建控件，我们采用预先定义好所有参数，并控制可见性。
-    # 这里我们只是简单返回一个提示
-    return gr.update(visible=True)
+def on_model_cat_change(cat):
+    return gr.update(choices=list(MODELS[cat].keys()))
 
-# ==================== 构建大型系统界面 ====================
+# ==================== 构建大型系统界面（修复主题） ====================
 def build_ui():
-    with gr.Blocks(theme=gr.themes.Dark(primary_hue="indigo"), title="AI 创作平台", css="""
-        .gradio-container { max-width: 1400px; margin: auto; }
-        .sidebar { background: #1a1a2e; padding: 15px; border-radius: 8px; }
-        .main-area { background: #0f0f1a; padding: 20px; border-radius: 8px; }
-    """) as demo:
+    # 自定义 CSS（保留深色风格）
+    custom_css = """
+    .gradio-container { max-width: 1400px; margin: auto; }
+    .sidebar { background: #1a1a2e; padding: 15px; border-radius: 8px; }
+    .main-area { background: #0f0f1a; padding: 20px; border-radius: 8px; }
+    """
+    # 使用 Soft 主题（兼容所有版本），并设置主色调为靛蓝
+    with gr.Blocks(theme=gr.themes.Soft(primary_hue="indigo"), css=custom_css, title="AI 创作平台 · 企业版") as demo:
         gr.Markdown("# 🧠 AI 创作平台 · 企业版")
 
         # 顶部状态栏
         with gr.Row():
-            balance_display = gr.Markdown(get_balance())
+            balance_display = gr.Markdown(get_balance_display())
             refresh_btn = gr.Button("🔄 刷新余额", size="sm")
-        refresh_btn.click(fn=get_balance, outputs=balance_display)
+        refresh_btn.click(fn=get_balance_display, outputs=balance_display)
 
         # 主布局：左侧参数栏 + 右侧结果区
         with gr.Row(equal_height=False):
             # ---------- 左侧参数面板 ----------
             with gr.Column(scale=1, elem_classes="sidebar"):
                 gr.Markdown("### 🎯 模型选择")
-                # 模型分类下拉
-                model_cat = gr.Dropdown(
-                    choices=list(MODELS.keys()),
-                    label="模型类别",
-                    value="图片"
-                )
-                # 具体模型下拉（动态更新）
-                def update_models(cat):
-                    return gr.update(choices=list(MODELS[cat].keys()))
-                model_dropdown = gr.Dropdown(label="选择模型", choices=[], interactive=True)
-                model_cat.change(fn=update_models, inputs=model_cat, outputs=model_dropdown)
-
-                # 初始化模型列表
-                model_dropdown.choices = list(MODELS["图片"].keys())
+                model_cat = gr.Dropdown(choices=list(MODELS.keys()), label="模型类别", value="图片")
+                model_dropdown = gr.Dropdown(label="选择模型", choices=list(MODELS["图片"].keys()), interactive=True)
+                model_cat.change(fn=on_model_cat_change, inputs=model_cat, outputs=model_dropdown)
 
                 gr.Markdown("### 📝 输入")
                 prompt_box = gr.Textbox(label="提示词 / 指令", placeholder="描述你的需求...", lines=3)
@@ -381,40 +356,18 @@ def build_ui():
                 gr.Markdown("### 📎 上传参考文件")
                 file_upload = gr.File(label="上传图片/视频（可选）", file_types=[".jpg", ".jpeg", ".png", ".gif", ".webp", ".mp4", ".mov", ".avi"])
 
-                # 参数区域（动态生成，但使用预定义控件+可见性控制）
                 gr.Markdown("### ⚙️ 参数设置")
                 with gr.Accordion("高级参数", open=False):
-                    # 通用参数：种子
+                    # 通用参数（所有模型通用）
                     seed = gr.Number(label="种子 (Seed)", value=-1, precision=0)
-                    # 其余参数根据模型动态显示，但这里我们预先定义所有可能参数，稍后控制可见性
-                    # 由于模型参数种类繁多，我们使用多个折叠面板，每类一个，但为了简化，我们使用一个gr.Column并动态更新可见性
-                    # 但Gradio无法动态隐藏/显示单个组件（只能整个Column），所以我们将所有参数放在一个Column中，并整体替换。
-                    # 更好的方式：使用gr.State存储当前参数控件，并通过gr.update更新整个Column内容？但Gradio不支持。
-                    # 因此我采用预先定义所有参数，全部显示，但用户可能困惑。
-                    # 更专业的做法：根据选择的模型，通过一个函数返回对应参数的HTML描述，但我们失去交互性。
-                    # 为了平衡，我决定不动态隐藏，而是全部显示，但使用标签说明适用模型。
-                    # 用户可能会自行忽略不相关的参数。
-                    # 但为了更接近大型系统，我们只显示常用参数：分辨率、比例、时长、风格等，这些大多数模型都有。
-                    # 我们统一使用几个常见参数控件，并使用gr.update来改变其标签和可见性。
-                    # 但这需要预先知道所有模型参数，很难统一。
-                    # 我决定采用最简单的方式：直接显示所有可能的参数控件（分辨率、比例、时长、风格、温度、最大长度等），
-                    # 并让用户根据模型自行填写，同时显示该模型的推荐参数提示。
-                    # 我们在模型下拉旁边显示一个Markdown说明该模型支持的参数。
-                # 由于上述原因，我改为简洁方案：使用几个通用参数：分辨率、比例、时长、风格、温度、最大长度，并根据模型类型隐藏部分。
-                # 实现方式：定义这些控件，并更新可见性。
-                # 但我们也可使用gr.Group，用gr.update(visible=False)控制。
-                # 我决定在每个模型配置中标注使用的参数，然后根据选择的模型隐藏/显示对应的控件组。
-
-                # 常见参数控件
-                with gr.Row():
+                    # 主要参数控件（将根据模型类型显示/隐藏，但这里统一显示，用户自行使用）
                     resolution = gr.Radio(["1k", "2k", "4k"], label="分辨率", value="1k", visible=True)
                     aspect = gr.Radio(["1:1", "16:9", "9:16", "4:3", "3:4"], label="比例", value="1:1", visible=True)
-                duration = gr.Slider(4, 30, value=8, step=2, label="时长(秒)", visible=True)
-                style = gr.Radio(["pop", "jazz", "classical", "rock", "electronic"], label="风格", value="pop", visible=True)
-                temperature = gr.Slider(0, 2, value=0.7, step=0.1, label="温度", visible=True)
-                max_tokens = gr.Slider(256, 4096, value=2048, step=256, label="最大输出", visible=True)
+                    duration = gr.Slider(4, 30, value=8, step=2, label="时长(秒)", visible=True)
+                    style = gr.Radio(["pop", "jazz", "classical", "rock", "electronic"], label="风格", value="pop", visible=True)
+                    temperature = gr.Slider(0, 2, value=0.7, step=0.1, label="温度", visible=True)
+                    max_tokens = gr.Slider(256, 4096, value=2048, step=256, label="最大输出", visible=True)
 
-                # 生成按钮
                 generate_btn = gr.Button("🚀 生成", variant="primary", size="lg")
 
             # ---------- 右侧结果展示 ----------
@@ -423,14 +376,9 @@ def build_ui():
                 gr.Markdown("### 📜 历史记录")
                 history_display = gr.Markdown("暂无记录")
                 refresh_history_btn = gr.Button("刷新历史", size="sm")
-                refresh_history_btn.click(fn=refresh_history, outputs=history_display)
+                refresh_history_btn.click(fn=refresh_history_display, outputs=history_display)
 
         # ---------- 事件绑定 ----------
-        # 模型改变时更新参数可见性（简化处理，直接显示所有，用户忽略不相关的）
-        def on_model_change_callback(model_key):
-            # 这里可以添加逻辑隐藏特定参数，但为了简化，不做动态隐藏
-            return gr.update()
-
         generate_btn.click(
             fn=generate_wrapper,
             inputs=[
@@ -446,16 +394,11 @@ def build_ui():
                 seed
             ],
             outputs=output_md
-        ).then(fn=refresh_history, outputs=history_display)
-
-        model_dropdown.change(fn=on_model_change_callback, inputs=model_dropdown)
-
-        # 初始化模型下拉
-        model_dropdown.choices = list(MODELS["图片"].keys())
-        model_dropdown.value = "gpt-image-2"
+        ).then(fn=refresh_history_display, outputs=history_display)
 
     return demo
 
+# ==================== 启动 ====================
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 7860))
     demo = build_ui()
