@@ -1,4 +1,4 @@
-import gradio as gr  # ✅ 添加这行
+import gradio as gr  # 必须有
 from ui.tabs.dashboard import create_dashboard_tab
 from ui.tabs.image import create_image_tab
 from ui.tabs.video import create_video_tab
