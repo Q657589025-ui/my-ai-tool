@@ -19,7 +19,6 @@ else:
 Base = declarative_base()
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
-# 定义模型（省略，与之前相同，但为了简洁可导入）
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -69,16 +68,19 @@ def get_db():
     finally:
         db.close()
 
-# 管理员创建函数
 def create_default_admin():
     try:
-        with get_db() as db:
+        # 使用 SessionLocal 直接创建，避免生成器上下文问题
+        db = SessionLocal()
+        try:
             if not db.query(User).filter(User.username == "admin").first():
                 import bcrypt
                 hashed = bcrypt.hashpw("admin123".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
                 admin = User(username="admin", email="admin@studio.com", password_hash=hashed, role="admin", points=99999)
                 db.add(admin)
                 db.commit()
-                print("✅ 默认管理员已创建")
+                print("✅ 默认管理员已创建: admin / admin123")
+        finally:
+            db.close()
     except Exception as e:
         print(f"⚠️ 创建管理员失败: {e}")
