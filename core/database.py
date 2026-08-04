@@ -1,13 +1,16 @@
 import os
 from datetime import datetime
-from contextlib import contextmanager
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float, Text, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from sqlalchemy.pool import NullPool
-from core.config import config
+from core.config import DATABASE_URL
 
-DATABASE_URL = config.DATABASE_URL
+if DATABASE_URL.startswith("sqlite:///"):
+    db_path = DATABASE_URL.replace("sqlite:///", "")
+    db_dir = os.path.dirname(db_path)
+    if db_dir and not os.path.exists(db_dir):
+        os.makedirs(db_dir, exist_ok=True)
+
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 else:
@@ -16,7 +19,7 @@ else:
 Base = declarative_base()
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
-# ---------- 模型 ----------
+# 定义模型（省略，与之前相同，但为了简洁可导入）
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -25,9 +28,8 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     avatar = Column(String, default="")
     points = Column(Integer, default=10000)
-    role = Column(String, default="user")  # user, admin
+    role = Column(String, default="user")
     created_at = Column(DateTime, default=datetime.utcnow)
-
     tasks = relationship("Task", back_populates="user")
     works = relationship("Work", back_populates="user")
 
@@ -41,10 +43,9 @@ class Task(Base):
     prompt = Column(Text)
     status = Column(String, default="waiting")
     progress = Column(Integer, default=0)
-    result = Column(Text)  # JSON
+    result = Column(Text)
     cost = Column(Float, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
-
     user = relationship("User", back_populates="tasks")
 
 class Work(Base):
@@ -56,19 +57,11 @@ class Work(Base):
     prompt = Column(Text)
     model = Column(String)
     url = Column(Text)
-    cdn_url = Column(Text, default="")
-    file_size = Column(Integer, default=0)
-    storage_type = Column(String, default="local")
     created_at = Column(DateTime, default=datetime.utcnow)
-
     user = relationship("User", back_populates="works")
 
-# ---------- 初始化 ----------
-def init_db():
-    Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=engine)
 
-# ---------- DB 会话 ----------
-@contextmanager
 def get_db():
     db = SessionLocal()
     try:
@@ -76,38 +69,16 @@ def get_db():
     finally:
         db.close()
 
-# ---------- 用户操作 ----------
-def get_user_by_username(db, username):
-    return db.query(User).filter(User.username == username).first()
-
-def get_user_by_email(db, email):
-    return db.query(User).filter(User.email == email).first()
-
-def get_user_by_id(db, user_id):
-    return db.query(User).filter(User.id == user_id).first()
-
-def create_user(db, username, email, password_hash, role="user", points=10000):
-    user = User(
-        username=username,
-        email=email,
-        password_hash=password_hash,
-        role=role,
-        points=points,
-        created_at=datetime.utcnow()
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user
-
-def update_user_points(db, user_id, amount):
-    user = get_user_by_id(db, user_id)
-    if user:
-        user.points += amount
-        db.commit()
-        return True
-    return False
-
-def get_user_points(db, user_id):
-    user = get_user_by_id(db, user_id)
-    return user.points if user else 0
+# 管理员创建函数
+def create_default_admin():
+    try:
+        with get_db() as db:
+            if not db.query(User).filter(User.username == "admin").first():
+                import bcrypt
+                hashed = bcrypt.hashpw("admin123".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+                admin = User(username="admin", email="admin@studio.com", password_hash=hashed, role="admin", points=99999)
+                db.add(admin)
+                db.commit()
+                print("✅ 默认管理员已创建")
+    except Exception as e:
+        print(f"⚠️ 创建管理员失败: {e}")
