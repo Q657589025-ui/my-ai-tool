@@ -1,0 +1,72 @@
+{
+  "image": {
+    "GPT Image 2": {
+      "model": "gpt-image-2",
+      "channel": "OpenAI",
+      "params": ["resolution", "aspect_ratio"]
+    },
+    "GPT Image 2 Pro": {
+      "model": "gpt-image-2-pro",
+      "channel": "OpenaiM",
+      "params": ["image_size", "aspect_ratio"]
+    },
+    "GPT Image 2 Fast": {
+      "model": "gpt-image-2-fast",
+      "channel": "openaiD",
+      "params": ["image_size", "aspect_ratio", "quality"]
+    },
+    "Nano-Banana Pro": {
+      "model": "nano-banana-pro",
+      "channel": "Google",
+      "params": ["image_size", "aspect_ratio"]
+    },
+    "Nano-Banana 2": {
+      "model": "nano-banana-2",
+      "channel": "Google",
+      "params": ["image_size", "aspect_ratio"]
+    }
+  },
+  "video": {
+    "VEO 3.1 Pro": {
+      "model": "veo3.1-pro",
+      "channel": "xAIQ",
+      "params": ["quality", "duration", "aspect_ratio", "generation_type"]
+    },
+    "VEO 3.1 Fast": {
+      "model": "veo3.1-fast",
+      "channel": "xAIQ",
+      "params": ["quality", "duration", "aspect_ratio", "generation_type"]
+    },
+    "Grok Video": {
+      "model": "grok-video",
+      "channel": "xAIQ",
+      "params": ["duration", "aspect_ratio"]
+    },
+    "H3 Video": {
+      "model": "h3-video",
+      "channel": "minimax",
+      "params": ["duration", "resolution", "ratio"]
+    }
+  },
+  "music": {
+    "Music Generation": {
+      "model": "music_generation",
+      "channel": "music_gen",
+      "params": ["style", "tempo"]
+    }
+  },
+  "human": {
+    "Digital Human": {
+      "model": "digital_human",
+      "channel": "dh_channel",
+      "params": ["expression"]
+    }
+  },
+  "chat": {
+    "Qwen3.6-Plus": {
+      "model": "qwen3.6-plus",
+      "channel": "dashscope_compatible",
+      "params": ["temperature", "max_tokens"]
+    }
+  }
+}
