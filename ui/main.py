@@ -8,7 +8,7 @@ import hashlib
 import base64
 from datetime import datetime
 from core.database import get_db, User, Task, Work
-from core.auth import get_user_points, update_user_points
+from core.auth import get_user_points, update_user_points   # ✅ 正确
 from core.config import API_KEY, BASE_URL, OUTPUT_DIR, MODEL_CONFIG
 
 # ==================== API 客户端 ====================
