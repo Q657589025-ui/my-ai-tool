@@ -1,17 +1,16 @@
 import os
 import gradio as gr
-from ui.theme import CUSTOM_CSS   # 新增导入
-from core.database import create_default_admin
+from ui.theme import CUSTOM_CSS
+from core.auth import create_default_admin, get_user_points
 from ui.login import create_login_ui
 from ui.main import create_main_tabs
-from core.auth import get_user_points
 
 create_default_admin()
 
 def build_app():
     with gr.Blocks(theme=gr.themes.Soft(primary_hue="indigo"), title="AI Studio Pro", css=CUSTOM_CSS) as demo:
-        # 其余代码不变...
         login_col, token_state, user_state, user_id_state = create_login_ui()
+
         main_col = gr.Column(visible=False)
         with main_col:
             with gr.Row():
@@ -20,7 +19,6 @@ def build_app():
                 logout_btn = gr.Button("🚪 退出", size="sm")
             main_tabs = create_main_tabs(user_id_state)
 
-        # 事件绑定部分（与之前完全相同）
         def on_login_success(token, user):
             if token:
                 return user.get("id"), gr.update(visible=False), gr.update(visible=True)
